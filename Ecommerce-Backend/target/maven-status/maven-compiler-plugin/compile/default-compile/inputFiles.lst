@@ -1,0 +1,5 @@
+/home/ubuntu/SpringBoot-Reactjs-Ecommerce/Ecommerce-Backend/src/main/java/com/cart/ecom_proj/EcomProjApplication.java
+/home/ubuntu/SpringBoot-Reactjs-Ecommerce/Ecommerce-Backend/src/main/java/com/cart/ecom_proj/controller/ProductController.java
+/home/ubuntu/SpringBoot-Reactjs-Ecommerce/Ecommerce-Backend/src/main/java/com/cart/ecom_proj/model/Product.java
+/home/ubuntu/SpringBoot-Reactjs-Ecommerce/Ecommerce-Backend/src/main/java/com/cart/ecom_proj/repo/ProductRepo.java
+/home/ubuntu/SpringBoot-Reactjs-Ecommerce/Ecommerce-Backend/src/main/java/com/cart/ecom_proj/service/ProductService.java

@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  ecommerce-app:
+    image: ecommerce-backend:v3
+    container_name: ecommerce-app
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://ecommerce-db.c76meq40gi7r.ap-south-1.rds.amazonaws.com:3306/ecommercedb
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=Aniket143
+    restart: always
