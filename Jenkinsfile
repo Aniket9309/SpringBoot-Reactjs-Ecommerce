@@ -34,7 +34,7 @@ pipeline {
                 sh '''
                     docker stop ecommerce-app || true
                     docker rm ecommerce-app || true
-                    docker run -d -p 8080:8080 --name ecommerce-app ecommerce-backend:latest
+                    docker run -d -p 9090:8080 --name ecommerce-app ecommerce-backend:latest
                 '''
             }
         }
