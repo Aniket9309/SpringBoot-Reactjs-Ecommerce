@@ -1,7 +1,3 @@
-Bhai, pura updated Jenkinsfile — ek single command mein EC2 par daal do:
-EC2 Terminal Mein Ye Pura Command Chalao
-bashcd ~/SpringBoot-Reactjs-Ecommerce
-cat > Jenkinsfile << 'EOF'
 pipeline {
     agent any
 
