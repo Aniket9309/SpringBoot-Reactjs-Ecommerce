@@ -1,8 +1,3 @@
- withSonarQubeEnv('MySonarQube') {
-                        sh '''
-                            mvn clean verify sonar:sonar \
-                              -Dsonar.projectKey=ecommerce-backend
-                        '''
 pipeline {
     agent any
 
