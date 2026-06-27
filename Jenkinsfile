@@ -1,13 +1,21 @@
 pipeline {
     agent { label 'slave' }
 
+    parameters {
+        choice(
+            name: 'DEPLOY_ENV',
+            choices: ['dev', 'qa', 'uat', 'prod'],
+            description: 'Select environment to deploy'
+        )
+    }
+
     environment {
         AWS_REGION       = 'ap-south-1'
         ECR_REGISTRY     = '198452821908.dkr.ecr.ap-south-1.amazonaws.com'
         BACKEND_REPO     = 'ecommerce-backend'
         FRONTEND_REPO    = 'ecoomerce-frontend'
         IMAGE_TAG        = "${BUILD_NUMBER}"
-        NAMESPACE        = 'dev'
+        NAMESPACE        = "${params.DEPLOY_ENV}"
     }
 
     stages {
@@ -47,13 +55,25 @@ pipeline {
             }
         }
 
-        stage('Deploy to EKS') {
+        stage('Ensure Namespace & Secret') {
             steps {
                 sh '''
                     aws eks update-kubeconfig --region $AWS_REGION --name my-eks-cluster
-                    kubectl apply -f k8s/db-secret.yaml
+                    kubectl get namespace $NAMESPACE || kubectl create namespace $NAMESPACE
+                    sed "s/namespace: dev/namespace: $NAMESPACE/" k8s/db-secret.yaml | kubectl apply -f -
+                '''
+            }
+        }
+
+        stage('Deploy to EKS') {
+            steps {
+                sh '''
+                    kubectl get deployment ecommerce-backend -n $NAMESPACE || sed "s/namespace: dev/namespace: $NAMESPACE/" k8s/backend-deployment.yaml | kubectl apply -f -
+                    kubectl get deployment ecommerce-frontend -n $NAMESPACE || sed "s/namespace: dev/namespace: $NAMESPACE/" k8s/frontend-deployment.yaml | kubectl apply -f -
+
                     kubectl set image deployment/ecommerce-backend ecommerce-backend=$ECR_REGISTRY/$BACKEND_REPO:$IMAGE_TAG -n $NAMESPACE
                     kubectl set image deployment/ecommerce-frontend ecommerce-frontend=$ECR_REGISTRY/$FRONTEND_REPO:$IMAGE_TAG -n $NAMESPACE
+
                     kubectl rollout status deployment/ecommerce-backend -n $NAMESPACE
                     kubectl rollout status deployment/ecommerce-frontend -n $NAMESPACE
                 '''
@@ -63,7 +83,7 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline completed successfully! Build #${IMAGE_TAG} deployed to ${NAMESPACE}"
+            echo "✅ Build #${IMAGE_TAG} deployed successfully to ${params.DEPLOY_ENV}"
         }
         failure {
             echo "❌ Pipeline failed. Check logs above."
