@@ -17,6 +17,8 @@ pipeline {
         IMAGE_TAG        = "${BUILD_NUMBER}"
         NAMESPACE        = "${params.DEPLOY_ENV}"
         SNS_TOPIC        = 'arn:aws:sns:ap-south-1:198452821908:ecommerce-alert'
+        S3_BUCKET        = 'ecommerce-artifacts-198452821908'
+        CLUSTER_NAME     = 'my-eks-cluster'
     }
 
     stages {
@@ -56,10 +58,24 @@ pipeline {
             }
         }
 
+        stage('Upload to S3') {
+            steps {
+                sh '''
+                    aws s3 cp Ecommerce-Backend/pom.xml \
+                      s3://$S3_BUCKET/builds/build-$IMAGE_TAG/pom.xml \
+                      --region $AWS_REGION
+                    echo "Build #$IMAGE_TAG artifacts uploaded to S3" > build-info.txt
+                    aws s3 cp build-info.txt \
+                      s3://$S3_BUCKET/builds/build-$IMAGE_TAG/build-info.txt \
+                      --region $AWS_REGION
+                '''
+            }
+        }
+
         stage('Ensure Namespace & Secret') {
             steps {
                 sh '''
-                    aws eks update-kubeconfig --region $AWS_REGION --name my-eks-cluster
+                    aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
                     kubectl get namespace $NAMESPACE || kubectl create namespace $NAMESPACE
                     sed "s/namespace: dev/namespace: $NAMESPACE/" k8s/db-secret.yaml | kubectl apply -f -
                 '''
@@ -87,7 +103,7 @@ pipeline {
             sh """
                 aws sns publish \
                   --topic-arn ${SNS_TOPIC} \
-                  --message '✅ Build #${BUILD_NUMBER} deployed successfully to ${params.DEPLOY_ENV} environment!' \
+                  --message '✅ Build #${BUILD_NUMBER} deployed successfully to ${params.DEPLOY_ENV} environment! ECR Image: ${BUILD_NUMBER}' \
                   --subject 'Jenkins Build SUCCESS - Build #${BUILD_NUMBER}' \
                   --region ${AWS_REGION}
             """
