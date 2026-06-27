@@ -1,92 +1,72 @@
 pipeline {
-    agent any
-
-    tools {
-        maven 'Maven3'
-        jdk 'JDK21'
-    }
+    agent { label 'slave' }
 
     environment {
-        AWS_REGION     = 'ap-south-1'
-        AWS_ACCOUNT_ID = '198452821908'
-        BACKEND_REPO   = 'my-app'
-        FRONTEND_REPO  = 'ecommerce-frontend'
-        ECR_REGISTRY   = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        AWS_REGION       = 'ap-south-1'
+        ECR_REGISTRY     = '198452821908.dkr.ecr.ap-south-1.amazonaws.com'
+        BACKEND_REPO     = 'ecommerce-backend'
+        FRONTEND_REPO    = 'ecoomerce-frontend'
+        IMAGE_TAG        = "${BUILD_NUMBER}"
+        NAMESPACE        = 'dev'
     }
 
     stages {
-
-        stage('Clone Code') {
+        stage('Checkout') {
             steps {
-                echo 'Cloning repository...'
-                checkout scm
+                git branch: 'main', url: 'https://github.com/Aniket9309/SpringBoot-Reactjs-Ecommerce.git'
             }
         }
 
-        stage('SonarQube Analysis') {
+        stage('ECR Login') {
             steps {
-                echo 'Running SonarQube scan on backend...'
-                dir('Ecommerce-Backend') {
-                    withSonarQubeEnv('MySonarQube') {
-                        sh '''
-                            mvn clean verify sonar:sonar \
-                              -DskipTests \
-                              -Dsonar.projectKey=ecommerce-backend
-                        '''
-                    }
-                }
+                sh '''
+                    aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+                '''
             }
         }
 
-        stage('Build Backend (Maven)') {
+        stage('Build & Push Backend') {
             steps {
-                echo 'Building Spring Boot backend...'
-                dir('Ecommerce-Backend') {
-                    sh 'mvn clean package -DskipTests'
-                }
+                sh '''
+                    docker build -t $ECR_REGISTRY/$BACKEND_REPO:$IMAGE_TAG ./Ecommerce-Backend
+                    docker tag $ECR_REGISTRY/$BACKEND_REPO:$IMAGE_TAG $ECR_REGISTRY/$BACKEND_REPO:latest
+                    docker push $ECR_REGISTRY/$BACKEND_REPO:$IMAGE_TAG
+                    docker push $ECR_REGISTRY/$BACKEND_REPO:latest
+                '''
             }
         }
 
-        stage('Docker Build - Backend') {
+        stage('Build & Push Frontend') {
             steps {
-                echo 'Building backend Docker image...'
-                dir('Ecommerce-Backend') {
-                    sh "docker build -t ${BACKEND_REPO}:latest ."
-                }
+                sh '''
+                    docker build -t $ECR_REGISTRY/$FRONTEND_REPO:$IMAGE_TAG ./Ecommerce-Frontend
+                    docker tag $ECR_REGISTRY/$FRONTEND_REPO:$IMAGE_TAG $ECR_REGISTRY/$FRONTEND_REPO:latest
+                    docker push $ECR_REGISTRY/$FRONTEND_REPO:$IMAGE_TAG
+                    docker push $ECR_REGISTRY/$FRONTEND_REPO:latest
+                '''
             }
         }
 
-        stage('Docker Build - Frontend') {
+        stage('Deploy to EKS') {
             steps {
-                echo 'Building frontend Docker image...'
-                dir('Ecommerce-Frontend') {
-                    sh "docker build -t ${FRONTEND_REPO}:latest ."
-                }
-            }
-        }
-
-        stage('Push to ECR') {
-            steps {
-                echo 'Logging in to ECR and pushing images...'
-                sh """
-                    aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
-
-                    docker tag ${BACKEND_REPO}:latest ${ECR_REGISTRY}/${BACKEND_REPO}:latest
-                    docker push ${ECR_REGISTRY}/${BACKEND_REPO}:latest
-
-                    docker tag ${FRONTEND_REPO}:latest ${ECR_REGISTRY}/${FRONTEND_REPO}:latest
-                    docker push ${ECR_REGISTRY}/${FRONTEND_REPO}:latest
-                """
+                sh '''
+                    aws eks update-kubeconfig --region $AWS_REGION --name my-eks-cluster
+                    kubectl apply -f k8s/db-secret.yaml
+                    kubectl set image deployment/ecommerce-backend ecommerce-backend=$ECR_REGISTRY/$BACKEND_REPO:$IMAGE_TAG -n $NAMESPACE
+                    kubectl set image deployment/ecommerce-frontend ecommerce-frontend=$ECR_REGISTRY/$FRONTEND_REPO:$IMAGE_TAG -n $NAMESPACE
+                    kubectl rollout status deployment/ecommerce-backend -n $NAMESPACE
+                    kubectl rollout status deployment/ecommerce-frontend -n $NAMESPACE
+                '''
             }
         }
     }
 
     post {
         success {
-            echo 'Pipeline succeeded! Both images pushed to ECR.'
+            echo "✅ Pipeline completed successfully! Build #${IMAGE_TAG} deployed to ${NAMESPACE}"
         }
         failure {
-            echo 'Pipeline failed! Check the logs above.'
+            echo "❌ Pipeline failed. Check logs above."
         }
     }
 }
