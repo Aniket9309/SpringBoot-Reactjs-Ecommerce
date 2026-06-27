@@ -16,7 +16,7 @@ pipeline {
         FRONTEND_REPO    = 'ecoomerce-frontend'
         IMAGE_TAG        = "${BUILD_NUMBER}"
         NAMESPACE        = "${params.DEPLOY_ENV}"
-        SNS_TOPIC        = 'arn:aws:sns:ap-south-1:198452821908:ecommerce-alerts'
+        SNS_TOPIC        = 'arn:aws:sns:ap-south-1:198452821908:ecommerce-alert'
     }
 
     stages {
