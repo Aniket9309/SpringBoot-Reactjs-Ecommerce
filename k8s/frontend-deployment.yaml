@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecommerce-frontend
+  namespace: dev
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ecommerce-frontend
+  template:
+    metadata:
+      labels:
+        app: ecommerce-frontend
+    spec:
+      containers:
+        - name: ecommerce-frontend
+          image: 198452821908.dkr.ecr.ap-south-1.amazonaws.com/ecoomerce-frontend:latest
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecommerce-frontend-service
+  namespace: dev
+spec:
+  selector:
+    app: ecommerce-frontend
+  ports:
+    - port: 80
+      targetPort: 80
+  type: LoadBalancer

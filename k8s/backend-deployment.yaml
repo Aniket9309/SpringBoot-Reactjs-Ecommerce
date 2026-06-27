@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecommerce-backend
+  namespace: dev
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ecommerce-backend
+  template:
+    metadata:
+      labels:
+        app: ecommerce-backend
+    spec:
+      containers:
+        - name: ecommerce-backend
+          image: 198452821908.dkr.ecr.ap-south-1.amazonaws.com/ecommerce-backend:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: DB_NAME
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: DB_USERNAME
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: DB_PASSWORD
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecommerce-backend-service
+  namespace: dev
+spec:
+  selector:
+    app: ecommerce-backend
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: ClusterIP
