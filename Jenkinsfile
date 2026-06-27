@@ -16,6 +16,7 @@ pipeline {
         FRONTEND_REPO    = 'ecoomerce-frontend'
         IMAGE_TAG        = "${BUILD_NUMBER}"
         NAMESPACE        = "${params.DEPLOY_ENV}"
+        SNS_TOPIC        = 'arn:aws:sns:ap-south-1:198452821908:ecommerce-alerts'
     }
 
     stages {
@@ -74,8 +75,8 @@ pipeline {
                     kubectl set image deployment/ecommerce-backend ecommerce-backend=$ECR_REGISTRY/$BACKEND_REPO:$IMAGE_TAG -n $NAMESPACE
                     kubectl set image deployment/ecommerce-frontend ecommerce-frontend=$ECR_REGISTRY/$FRONTEND_REPO:$IMAGE_TAG -n $NAMESPACE
 
-                    kubectl rollout status deployment/ecommerce-backend -n $NAMESPACE
-                    kubectl rollout status deployment/ecommerce-frontend -n $NAMESPACE
+                    kubectl rollout status deployment/ecommerce-backend -n $NAMESPACE --timeout=300s
+                    kubectl rollout status deployment/ecommerce-frontend -n $NAMESPACE --timeout=300s
                 '''
             }
         }
@@ -83,9 +84,23 @@ pipeline {
 
     post {
         success {
-            echo "✅ Build #${IMAGE_TAG} deployed successfully to ${params.DEPLOY_ENV}"
+            sh """
+                aws sns publish \
+                  --topic-arn ${SNS_TOPIC} \
+                  --message '✅ Build #${BUILD_NUMBER} deployed successfully to ${params.DEPLOY_ENV} environment!' \
+                  --subject 'Jenkins Build SUCCESS - Build #${BUILD_NUMBER}' \
+                  --region ${AWS_REGION}
+            """
+            echo "✅ Build #${BUILD_NUMBER} deployed successfully to ${params.DEPLOY_ENV}"
         }
         failure {
+            sh """
+                aws sns publish \
+                  --topic-arn ${SNS_TOPIC} \
+                  --message '❌ Build #${BUILD_NUMBER} FAILED for ${params.DEPLOY_ENV} environment! Check Jenkins logs.' \
+                  --subject 'Jenkins Build FAILED - Build #${BUILD_NUMBER}' \
+                  --region ${AWS_REGION}
+            """
             echo "❌ Pipeline failed. Check logs above."
         }
     }
